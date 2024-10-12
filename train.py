@@ -142,16 +142,18 @@ def main():
     checkpoint = torch.load(checkpoint_path)
 
     # 加载优化器、调度器状态
-    if checkpoint['optimizer']:
+    if 'optimizer' in checkpoint:
         print("——————加载优化器状态——————")
         optimizer.load_state_dict(checkpoint['optimizer'])
-    if checkpoint['scheduler']:
+    if 'scheduler' in checkpoint:
         print("——————加载调度器状态——————")    
         scheduler.load_state_dict(checkpoint['scheduler'])
-    if checkpoint["epoch"]:
+    if 'epoch' in checkpoint:
         print("——————加载epoch——————")
         epoch = checkpoint['epoch']
         print("当前epoch: ", epoch)
+    else:
+        epoch = 0
     
     train(train_loader, sam2, optimizer, scheduler, val_loader, save_path, epoch)
 
@@ -232,9 +234,9 @@ def train(train_loader, model, optimizer, scheduler, val_loader, save_path, curr
                 loss3_meter.update(loss3.data.item())
 
                 pbar_desc = "Model train loss --- "
-                pbar_desc += f"Total loss: {train_loss.avg:.5f}"
-                pbar_desc += f", total f1: {f1_meter.avg:.5f}"
-                pbar_desc += f", total iou: {iou_meter.avg:.5f}"
+                pbar_desc += f"loss: {train_loss.avg:.5f}"
+                pbar_desc += f", f1: {f1_meter.avg:.5f}"
+                pbar_desc += f", iou: {iou_meter.avg:.5f}"
                 pbar_desc += f", lr: {scheduler.get_last_lr()}"
                 # pbar_desc += f", l1: {loss1.data.item():.5f}"
                 # pbar_desc += f", l2: {loss2.data.item():.5f}"
@@ -255,7 +257,10 @@ def train(train_loader, model, optimizer, scheduler, val_loader, save_path, curr
                     torch.save({
                         'model': model.state_dict()
                     }, os.path.join(save_path, NET_NAME + '_e%d_OA%.2f_F%.2f_IoU%.2f.pth' % (
-                        epoch, val_acc * 100, val_F * 100, val_IoU * 100)))
+                        epoch + curr_epoch + 1, val_acc * 100, val_F * 100, val_IoU * 100)))
+                # 记录best_model评分
+                with open(save_path + '/best_models_score.txt', 'a') as file:
+                    file.write('e%d OA_%.2f F1_%.2f Iou_%.2f Pre_%.2f Rec_%.2f \n' % (epoch + curr_epoch + 1, val_acc * 100, val_F * 100, val_IoU * 100, val_pre * 100, val_rec * 100))
             if acc_meter.avg > bestaccT: bestaccT = acc_meter.avg
             print('[epoch %d/%d %.1fs] Best rec: Train %.2f, Val %.2f, F1: %.2f IoU: %.2f, Pre: %.2f, Rec: %.2f L1 %.2f L2 %.2f L3 %.2f' \
                   % (epoch + curr_epoch + 1, epochs + curr_epoch, time.time() - begin_time, bestaccT * 100, bestacc * 100, bestF * 100,
@@ -274,7 +279,7 @@ def train(train_loader, model, optimizer, scheduler, val_loader, save_path, curr
                 'model': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict(),
-                'epoch': epoch + 1,
+                'epoch': epoch + curr_epoch + 1,
                 
             }, model_path)
 
