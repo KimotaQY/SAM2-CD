@@ -1,18 +1,19 @@
 # 数据集路径配置
 data:
-  root: "D:/Datasets/LEVIR-CD"
-  # root: "D:/Datasets/WHU-CD"
+  type: 'LEVIR'
+  # type: 'WHU'
+  # type: 'LEVIR+'
+  LEVIR: "D:/Datasets/LEVIR-CD"
+  LEVIR+: "D:/Datasets/LEVIR-CD+"
+  WHU: "D:/Datasets/WHU-CD"
   # root: "D:/Datasets/SYSU-CD"
   # root: "D:/Datasets/S2Looking"
   # root: "./data_test"
-  # train_data_dir: "D:/Datasets/LEVIR-CD/train"
-  # val_data_dir: "D:/Datasets/LEVIR-CD/val"
-  # test_data_dir: "D:/Datasets/LEVIR-CD/test"
 
 # 模型和训练超参数
 model:
-  model_name: "facebook/sam-vit-base"  # 基础模型的名称
-  model_path: "D:/Checkpoints/"
+  # model_name: "facebook/sam-vit-base"  # 基础模型的名称
+  # model_path: "D:/Checkpoints/"
   # model_type: "hiera_b+"
   # checkpoint_path: "D:/Checkpoints/sam2_hiera_base_plus.pt"
   # # checkpoint_path: "D:/SAM/SAM2-CD/outputs/models/sam2_cd_hiera_b+/model_500_1_20240924_110546/SAM2_LEVIR_400.pth"
@@ -30,15 +31,18 @@ training:
   learning_rate: 0.00001   # 初始学习率 1e-5
   num_epochs: 1000       # 训练的epoch数量
   device: "cuda"        # 训练设备 ("cuda" 或 "cpu")
+  dev_id: 0
   seed: 77              # 随机种子，确保结果可复现
+  weight_decay: 0.005
+  num_workers: 10
 
 # 日志和输出配置
 logging:
   log_dir: "./logs"            # 日志文件目录
-#  model_save_dir: "./outputs/models/sam2_cd_hiera_b+"  # 保存微调后模型的目录
-  model_save_dir: "./outputs/models/sam2_cd_hiera_s"
-  # model_save_dir: "./outputs/models/sam2_cd_hiera_l"
-  results_save_dir: "./outputs/results" # 保存测试结果的目录
+  save_dir: "./outputs/"
+  # model_save_dir: "./outputs/sam2_cd_hiera_b+"  # 保存微调后模型的目录
+  # model_save_dir: "./outputs/sam2_cd_hiera_s"
+  # model_save_dir: "./outputs/sam2_cd_hiera_l"
 
 # 验证和测试配置
 validation:

@@ -1,4 +1,4 @@
-from models.sam2_cd.build_sam import build_sam2, build_sam22
+from models.build_sam import build_sam2, build_sam22
 
 
 

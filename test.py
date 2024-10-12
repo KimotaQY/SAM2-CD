@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from datetime import datetime
 import yaml
-from models.sam2_cd.build_sam import build_sam2
+from models.build_sam import build_sam2
 from utils.losses import mean_iou, CombinedLoss
 from datasets.CustomDataset import CustomDataset
 

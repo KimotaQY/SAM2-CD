@@ -9,6 +9,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 import torch.nn.functional as F
 from torchvision import transforms
+from torch.utils.data import DataLoader
+
 
 # 定义训练集的pipeline
 train_transform = transforms.Compose([
@@ -174,3 +176,17 @@ class CustomDataset(Dataset):
         }
 
         return data
+    
+def build_dataloader(data_dir, batch_size, num_workers):
+    dataloaders = {
+        key: DataLoader(
+            CustomDataset(data_dir, key),
+            batch_size=batch_size,
+            shuffle=True if key == 'train' else False,
+            num_workers=num_workers,
+            # pin_memory=True,
+            # persistent_workers=False  # 增加 persistent_workers 参数，避免频繁的加载与释放
+        ) for key in ['train', 'val', 'test']
+    }
+
+    return dataloaders

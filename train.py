@@ -1,59 +1,33 @@
 import argparse
 import csv
+import json
 import os
 import time
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
 from torch import optim
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 from datetime import datetime
 import yaml
-from models.sam2_cd.build_sam import build_sam2
+from models.build_sam import build_sam2
 from utils.losses import mean_iou, CombinedLoss
-from datasets.CustomDataset import CustomDataset
+from datasets.CustomDataset import build_dataloader
 # from datasets.SYSU_CD import CustomDataset
 
 import torch.nn.functional as F
 from utils.utils import binary_accuracy as accuracy
 from utils.utils import AverageMeter
 
-###################### Data and Model ########################
-NET_NAME = 'SAM2_LEVIR'
-TASK_TYPE = 'test'
-###################### Data and Model ########################
-######################## Parameters ########################
-args = {
-    'gpu': True,
-    'dev_id': 0,
-    'multi_gpu': None,  # "0,1,2,3",
-    'weight_decay': 5e-3,
-    'momentum': 0.9,
-    'print_freq': 100,
-    'predict_step': 5,
-    'num_workers': 10,
-    'config_path': './configs/config.yaml'}
 
 # 读取配置
-with open(args['config_path'], "r", encoding='utf-8') as file:
+with open('./configs/config.yaml', "r", encoding='utf-8') as file:
     config_data = yaml.safe_load(file)
 
 
-# 数据加载
-def build_dataloader(data_dir, batch_size, num_workers):
-    dataloaders = {
-        key: DataLoader(
-            CustomDataset(data_dir, key),
-            batch_size=batch_size,
-            shuffle=True if key == 'train' else False,
-            num_workers=num_workers,
-            # pin_memory=True,
-            # persistent_workers=False  # 增加 persistent_workers 参数，避免频繁的加载与释放
-        ) for key in ['train', 'val', 'test']
-    }
-
-    return dataloaders
+DATA_TYPE = config_data["data"]["type"]
+NET_NAME = "SAM2_" + DATA_TYPE
+TASK_TYPE = 'test'
 
 
 # import matplotlib.pyplot as plt
@@ -107,9 +81,9 @@ def main():
     torch.manual_seed(SEED)
     torch.cuda.manual_seed(SEED)
 
-    # 确保父目录存在
+    # 新建保存文件夹
     date_time = datetime.now().strftime('%Y%m%d_%H%M%S')  # 获取当前的年月日和时间
-    output_model_path = config_data["logging"]["model_save_dir"]
+    output_model_path = config_data["logging"]["save_dir"] + config_data["data"]["type"]
     epochs = train_opt['num_epochs']
     batch_size = train_opt["batch_size"]
     if not os.path.exists(output_model_path):
@@ -118,10 +92,17 @@ def main():
     os.makedirs(save_path)
     os.makedirs(save_path, exist_ok=True)
 
+    # 配置文件写入txt
+    data_str = json.dumps(config_data, indent=4)
+    with open(os.path.join(save_path, 'config.txt'), 'w') as f:  # 保存配置文件
+        f.write(data_str)
+
+    # 构建模型
     model_opt = config_data["model"]
     checkpoint_path = model_opt["checkpoint_path"]
     model_cfg = model_opt["config"]
     sam2 = build_sam2(model_cfg, checkpoint_path)
+    
     # print("可训练参数:")
     # for name, param in sam2.named_parameters():
     #     # if param.requires_grad:
@@ -131,35 +112,19 @@ def main():
     #         # print(f"参数名: {name}, 尺寸: {param.requires_grad}")
     #     print(f"参数名: {name}, 尺寸: {param.requires_grad}")
 
-    lr = train_opt['learning_rate']
-    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, sam2.parameters()), lr=lr,
-                            weight_decay=args['weight_decay'])
-
-    file_path = config_data["data"]["root"]
+    file_path = config_data["data"][DATA_TYPE]
     global TASK_TYPE
     TASK_TYPE = 'test' if 'test' in file_path else 'train'
-    dataloaders = build_dataloader(file_path, batch_size, args['num_workers'])
 
-    train(dataloaders['train'], sam2, optimizer, dataloaders['test'], save_path)
+    # dataloaders
+    dataloaders = build_dataloader(file_path, batch_size, train_opt['num_workers'])
+    train_loader = dataloaders['train']
+    val_loader = dataloaders['test']
 
-
-def train(train_loader, model, optimizer, val_loader, save_path):
-    global TASK_TYPE
-
-    bestF = 0.0
-    bestacc = 0.0
-    bestIoU = 0.0
-    bestloss = 1.0
-    bestaccT = 0.0
-
-    curr_epoch = 0
-    train_opt = config_data["training"]
-    epochs = train_opt['num_epochs']
-    batch_size = train_opt["batch_size"]
+    # 定义优化器、调度器
     lr = train_opt['learning_rate']
-    begin_time = time.time()
-
-    # 学习率调度器
+    optimizer = optim.AdamW(filter(lambda p: p.requires_grad, sam2.parameters()), lr=lr,
+                            weight_decay=train_opt['weight_decay'])
     # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, verbose=True)
     # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=50)
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
@@ -172,6 +137,42 @@ def train(train_loader, model, optimizer, val_loader, save_path):
         # div_factor=10,
         # final_div_factor=100
     )
+
+    # 加载checkpoint
+    checkpoint = torch.load(checkpoint_path)
+
+    # 加载优化器、调度器状态
+    if checkpoint['optimizer']:
+        print("——————加载优化器状态——————")
+        optimizer.load_state_dict(checkpoint['optimizer'])
+    if checkpoint['scheduler']:
+        print("——————加载调度器状态——————")    
+        scheduler.load_state_dict(checkpoint['scheduler'])
+    if checkpoint["epoch"]:
+        print("——————加载epoch——————")
+        epoch = checkpoint['epoch']
+        print("当前epoch: ", epoch)
+    
+    train(train_loader, sam2, optimizer, scheduler, val_loader, save_path, epoch)
+
+
+def train(train_loader, model, optimizer, scheduler, val_loader, save_path, curr_epoch=0):
+    global TASK_TYPE
+    
+    bestF = 0.0
+    bestacc = 0.0
+    bestIoU = 0.0
+    bestloss = 1.0
+    bestaccT = 0.0
+
+    train_opt = config_data["training"]
+    epochs = train_opt['num_epochs'] - curr_epoch
+    batch_size = train_opt["batch_size"]
+    lr = train_opt['learning_rate']
+    begin_time = time.time()
+
+    if epochs <= 0:
+        raise ValueError("——————No epochs left to train——————")
 
     # 创建CSV文件并写入表头
     with open(save_path + '/training_log.csv', mode='w', newline='') as file:
@@ -193,9 +194,9 @@ def train(train_loader, model, optimizer, val_loader, save_path):
 
             iterations = tqdm(train_loader)
             for train_data in iterations:
-                train_input_A = train_data['image_A'].to(torch.device('cuda', int(args['dev_id']))).float()
-                train_input_B = train_data['image_B'].to(torch.device('cuda', int(args['dev_id']))).float()
-                labels = train_data['mask'].to(torch.device('cuda', int(args['dev_id']))).float()
+                train_input_A = train_data['image_A'].to(torch.device('cuda', int(train_opt['dev_id']))).float()
+                train_input_B = train_data['image_B'].to(torch.device('cuda', int(train_opt['dev_id']))).float()
+                labels = train_data['mask'].to(torch.device('cuda', int(train_opt['dev_id']))).float()
 
                 # # 可视化前后时相及其对应的mask
                 # visualize_batch(train_input_A, train_input_B, labels)
@@ -240,30 +241,25 @@ def train(train_loader, model, optimizer, val_loader, save_path):
                 # pbar_desc += f", l3: {loss3.data.item():.5f}"
                 iterations.set_description(pbar_desc)
 
-            val_F, val_acc, val_IoU, val_loss = validate(val_loader, model)
+            val_F, val_acc, val_IoU, val_loss, val_pre, val_rec = validate(val_loader, model)
             writer.writerow(
-                [epoch + 1, train_loss.avg, acc_meter.avg * 100, f1_meter.avg * 100, iou_meter.avg * 100, val_loss,
+                [epoch + curr_epoch + 1, train_loss.avg, acc_meter.avg * 100, f1_meter.avg * 100, iou_meter.avg * 100, val_loss,
                  val_acc * 100, val_F * 100, val_IoU * 100])
             if val_F > bestF or val_IoU > bestIoU:
                 bestF = val_F
                 bestacc = val_acc
                 bestIoU = val_IoU
+                bestPre = val_pre
+                bestRec = val_rec
                 if TASK_TYPE != 'test':
                     torch.save({
                         'model': model.state_dict()
                     }, os.path.join(save_path, NET_NAME + '_e%d_OA%.2f_F%.2f_IoU%.2f.pth' % (
                         epoch, val_acc * 100, val_F * 100, val_IoU * 100)))
             if acc_meter.avg > bestaccT: bestaccT = acc_meter.avg
-            print('[epoch %d/%d %.1fs] Best rec: Train %.2f, Val %.2f, F1 score: %.2f IoU %.2f L1 %.2f L2 %.2f L3 %.2f' \
-                  % (epoch, epochs, time.time() - begin_time, bestaccT * 100, bestacc * 100, bestF * 100,
-                     bestIoU * 100, loss1_meter.avg, loss2_meter.avg, loss3_meter.avg))
-
-            # 每隔5个epoch保存一次模型
-            if (epoch + 1) % 5 == 0 and TASK_TYPE != 'test':
-                model_path = save_path + "/" + NET_NAME + '_' + str(epoch + 1) + '.pth'
-                torch.save({
-                    'model': model.state_dict()
-                }, model_path)
+            print('[epoch %d/%d %.1fs] Best rec: Train %.2f, Val %.2f, F1: %.2f IoU: %.2f, Pre: %.2f, Rec: %.2f L1 %.2f L2 %.2f L3 %.2f' \
+                  % (epoch + curr_epoch + 1, epochs + curr_epoch, time.time() - begin_time, bestaccT * 100, bestacc * 100, bestF * 100,
+                     bestIoU * 100, bestPre * 100, bestRec * 100, loss1_meter.avg, loss2_meter.avg, loss3_meter.avg))
 
             # scheduler.step()
             # 根据验证损失更新学习率
@@ -272,21 +268,35 @@ def train(train_loader, model, optimizer, val_loader, save_path):
             # else:
             #     scheduler.step(train_loss.avg)
 
+            # 保存检查点
+            model_path = save_path + "/" + NET_NAME + '_checkpoint.pth'
+            torch.save({
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'scheduler': scheduler.state_dict(),
+                'epoch': epoch + 1,
+                
+            }, model_path)
+
 
 def validate(val_loader, model):
     model.eval()
     torch.cuda.empty_cache()
 
+    train_opt = config_data["training"]
+
     val_loss = AverageMeter()
     F1_meter = AverageMeter()
     IoU_meter = AverageMeter()
     Acc_meter = AverageMeter()
+    Pre_meter = AverageMeter()
+    Rec_meter = AverageMeter()
 
     iterations = tqdm(val_loader)
     for valid_data in iterations:
-        valid_input_A = valid_data['image_A'].to(torch.device('cuda', int(args['dev_id']))).float()
-        valid_input_B = valid_data['image_B'].to(torch.device('cuda', int(args['dev_id']))).float()
-        labels = valid_data['mask'].to(torch.device('cuda', int(args['dev_id']))).float()
+        valid_input_A = valid_data['image_A'].to(torch.device('cuda', int(train_opt['dev_id']))).float()
+        valid_input_B = valid_data['image_B'].to(torch.device('cuda', int(train_opt['dev_id']))).float()
+        labels = valid_data['mask'].to(torch.device('cuda', int(train_opt['dev_id']))).float()
 
         # 可视化前后时相及其对应的mask
         # visualize_batch(valid_input_A, valid_input_B, labels)
@@ -296,7 +306,7 @@ def validate(val_loader, model):
             # outputs = model(valid_input)
             # # 上采样输出到标签尺寸
             # outputs = F.interpolate(outputs, size=labels.shape[-2:], mode='bilinear', align_corners=False)
-            # loss = F.binary_cross_entropy_with_logits(outputs, labels, pos_weight=torch.tensor([10]).to(torch.device('cuda', int(args['dev_id']))))
+            # loss = F.binary_cross_entropy_with_logits(outputs, labels, pos_weight=torch.tensor([10]).to(torch.device('cuda', int(train_opt['dev_id']))))
             outputs, outputs_2, outputs_3 = model(valid_input)
             loss = BCEDiceLoss(outputs, labels) + BCEDiceLoss(outputs_2, labels) + BCEDiceLoss(outputs_3, labels)
         val_loss.update(loss.cpu().detach().numpy())
@@ -309,14 +319,19 @@ def validate(val_loader, model):
             F1_meter.update(F1)
             Acc_meter.update(acc)
             IoU_meter.update(IoU)
+            Pre_meter.update(precision)
+            Rec_meter.update(recall)
 
         pbar_desc = "Model valid loss --- "
-        pbar_desc += f"Total loss: {val_loss.average():.5f}"
-        pbar_desc += f", total f1: {F1_meter.avg:.5f}"
-        pbar_desc += f", total mIOU: {IoU_meter.avg:.5f}"
+        pbar_desc += f"loss: {val_loss.average():.5f}"
+        pbar_desc += f", F1: {F1_meter.avg * 100:.2f}"
+        pbar_desc += f", mIOU: {IoU_meter.avg * 100:.2f}"
+        pbar_desc += f", Acc: {Acc_meter.avg * 100:.2f}"
+        pbar_desc += f", Pre: {Pre_meter.avg * 100:.2f}"
+        pbar_desc += f", Rec: {Rec_meter.avg * 100:.2f}"
         iterations.set_description(pbar_desc)
 
-    return F1_meter.avg, Acc_meter.avg, IoU_meter.avg, val_loss.avg
+    return F1_meter.avg, Acc_meter.avg, IoU_meter.avg, val_loss.avg, Pre_meter.avg, Rec_meter.avg
 
 
 if __name__ == '__main__':
