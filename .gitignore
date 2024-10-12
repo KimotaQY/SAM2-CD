@@ -1,0 +1,14 @@
+/utils/__pycache__
+/data_test
+/models/sam2_cd/__pycache__
+/datasets/__pycache__
+/models/sam2_cd/modeling/__pycache__
+/models/sam2_cd/utils/__pycache__
+/models/sam2_cd/modeling/backbones/__pycache__
+/models/sam2_cd/modeling/sam/__pycache__
+/sam2_configs/__pycache__
+/models/utils/__pycache__
+/models/modeling/sam/__pycache__
+/models/modeling/backbones/__pycache__
+/models/modeling/__pycache__
+/models/__pycache__

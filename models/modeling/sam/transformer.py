@@ -14,9 +14,9 @@ import torch
 import torch.nn.functional as F
 from torch import nn, Tensor
 
-from models.sam2_cd.modeling.position_encoding import apply_rotary_enc, compute_axial_cis
-from models.sam2_cd.modeling.sam2_utils import MLP
-from models.sam2_cd.utils.misc import get_sdpa_settings
+from models.modeling.position_encoding import apply_rotary_enc, compute_axial_cis
+from models.modeling.sam2_utils import MLP
+from models.utils.misc import get_sdpa_settings
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 # Check whether Flash Attention is available (and use it by default)

@@ -8,10 +8,10 @@ import torch
 import torch.distributed
 import torch.nn.functional as F
 
-from models.sam2_cd.modeling.sam.prompt_encoder import PromptEncoder
-from models.sam2_cd.modeling.sam.mask_decoder import MaskDecoder
-from models.sam2_cd.modeling.sam.transformer import TwoWayTransformer
-from models.sam2_cd.modeling.sam2_utils import MLP
+from models.modeling.sam.prompt_encoder import PromptEncoder
+from models.modeling.sam.mask_decoder import MaskDecoder
+from models.modeling.sam.transformer import TwoWayTransformer
+from models.modeling.sam2_utils import MLP
 
 # a large negative value as a placeholder score for missing objects
 NO_OBJ_SCORE = -1024.0

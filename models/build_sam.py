@@ -11,11 +11,11 @@ import yaml
 
 from peft import LoraConfig, get_peft_model
 
-from models.sam2_cd.modeling.sam2_base import SAM2Base
-from models.sam2_cd.modeling.backbones.hieradet import Hiera
-from models.sam2_cd.modeling.backbones.image_encoder import FpnNeck, ImageEncoder
-from models.sam2_cd.modeling.position_encoding import PositionEmbeddingSine
-from models.sam2_cd.modeling.sam.mask_decoder import MaskDecoder
+from models.modeling.sam2_base import SAM2Base
+from models.modeling.backbones.hieradet import Hiera
+from models.modeling.backbones.image_encoder import FpnNeck, ImageEncoder
+from models.modeling.position_encoding import PositionEmbeddingSine
+from models.modeling.sam.mask_decoder import MaskDecoder
 
 def build_sam2(
     config_file,
