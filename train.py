@@ -2,6 +2,7 @@ import argparse
 import csv
 import json
 import os
+import random
 import time
 from matplotlib import pyplot as plt
 import numpy as np
@@ -73,17 +74,27 @@ def BCEDiceLoss(inputs, targets):
     # focal = FocalLoss(inputs, targets)  # BCEDiceFocalLoss
     return bce + 1 - dice
 
+def set_seed(seed):
+    random.seed(seed)  # 设置 Python 内部的随机种子
+    np.random.seed(seed)  # 设置 NumPy 的随机种子
+    torch.manual_seed(seed)  # 设置 PyTorch 的随机种子（CPU）
+    torch.cuda.manual_seed(seed)  # 设置 PyTorch 的随机种子（单 GPU）
+    torch.cuda.manual_seed_all(seed)  # 如果使用多 GPU 设置所有 GPU 的随机种子
+
+    # 确保 CuDNN 的确定性操作
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
 
 def main():
     train_opt = config_data["training"]
 
     SEED = train_opt['seed']
-    torch.manual_seed(SEED)
-    torch.cuda.manual_seed(SEED)
+    set_seed(SEED)
 
     # 新建保存文件夹
     date_time = datetime.now().strftime('%Y%m%d_%H%M%S')  # 获取当前的年月日和时间
-    output_model_path = config_data["logging"]["save_dir"] + config_data["data"]["type"]
+    output_model_path = config_data["logging"]["save_dir"] + config_data["data"]["type"] + '/' + config_data["model"]["model_type"]
     epochs = train_opt['num_epochs']
     batch_size = train_opt["batch_size"]
     if not os.path.exists(output_model_path):
