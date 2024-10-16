@@ -255,8 +255,6 @@ class GlobalContextAggregation(nn.Module):
 
         # self.se = SEBlock(self.mid_d)
 
-        # self.kan = KAN([self.mid_d, 64, self.mid_d])
-
         # 多尺度小波特征融合
         # self.wave_fusion = WaveFusion(self.in_d, 'haar')
 
@@ -283,17 +281,6 @@ class GlobalContextAggregation(nn.Module):
 
         # 应用SE
         # x = self.se(x)
-
-        # KAN
-        # # 展平空间维度 (64, 64) -> 4096
-        # x_flattened = x.view(x.size(0), x.size(1), -1)  # [2, 256, 4096]
-        # # 调整为适合 KAN 的输入形状 [batch_size * num_patches, in_features]
-        # x_kan_input = x_flattened.permute(0, 2, 1).contiguous().view(-1, x.size(1))  # [2 * 4096, 256]
-        # # 将 x_kan_input 传递给 KAN
-        # kan_output = self.kan(x_kan_input)
-        # # 将 KAN 的输出恢复为原始形状：
-        # kan_output = kan_output.view(x.size(0), 64, 64, -1).permute(0, 3, 1, 2)  # [2, 256, 64, 64]
-        # x = kan_output
 
         x = self.out_conv(x)
 
@@ -340,7 +327,6 @@ class WaveFusion(nn.Module):
         if(h1!=h2):
             x2 =F.pad(x2, (0, 0, 1, 0), "constant", 0)
 
-
         low=torch.cat([ll, x2], 1)
         low = self.convl(low)
         lowf=self.low(low)
@@ -363,10 +349,6 @@ class DecoderBlock(nn.Module):
             nn.ReLU(inplace=True),
         )
         self.cls = nn.Conv2d(self.mid_d, 1, kernel_size=1)
-
-        # self.mlp1 = CPCA(self.mid_d, self.mid_d)
-        # self.mlp2 = CPCA(self.mid_d, self.mid_d)
-        # self.mlp3 = CPCA(self.mid_d, self.mid_d)
 
     def forward(self, x_low, x_high, global_context):
         batch, channels, height, width = x_low.shape
