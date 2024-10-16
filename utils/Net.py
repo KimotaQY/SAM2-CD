@@ -37,10 +37,10 @@ class FeatureReinforcementModule(nn.Module):
     def _create_conv_block(self, in_channels, mid_channels, scale, orig_scale):
         layers = []
         if scale > orig_scale:  # Pooling for scales > 1
-            # layers.append(nn.MaxPool2d(kernel_size=2 ** (scale - orig_scale), stride=2 ** (scale - orig_scale)))
+            layers.append(nn.MaxPool2d(kernel_size=2 ** (scale - orig_scale), stride=2 ** (scale - orig_scale)))
             # 使用小波下采样保留细节
-            for i in range(scale - orig_scale):
-                layers.append(HWD(in_channels, in_channels))
+            # for i in range(scale - orig_scale):
+            #     layers.append(HWD(in_channels, in_channels))
 
         if scale == orig_scale:
             layers.extend([

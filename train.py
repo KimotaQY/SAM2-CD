@@ -83,7 +83,7 @@ def main():
 
     # 新建保存文件夹
     date_time = datetime.now().strftime('%Y%m%d_%H%M%S')  # 获取当前的年月日和时间
-    output_model_path = config_data["logging"]["save_dir"] + config_data["data"]["type"]
+    output_model_path = config_data["logging"]["save_dir"] + config_data["data"]["type"] + '/' + config_data["model"]["model_type"]
     epochs = train_opt['num_epochs']
     batch_size = train_opt["batch_size"]
     if not os.path.exists(output_model_path):
