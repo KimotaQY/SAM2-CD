@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from utils.Net import FeatureReinforcementModule, TemporalFusionModule, GlobalContextAggregation, Decoder
+from utils.Net import FeatureReinforcementModule, TemporalFusionModule, GlobalContextAggregation, Decoder, WaveFusion
 
 class MaskDecoder(nn.Module):
     def __init__(self):
@@ -14,7 +14,8 @@ class MaskDecoder(nn.Module):
         self.frm = FeatureReinforcementModule(channles, self.mid_d, drop_rate=0.2)
         self.tfm = TemporalFusionModule(self.mid_d, self.mid_d)
         # self.tfm = TemporalFusionModule(256, self.mid_d)
-        self.gca = GlobalContextAggregation(self.mid_d, self.mid_d, drop_rate=0.2)
+        # self.gca = GlobalContextAggregation(self.mid_d, self.mid_d, drop_rate=0.2)
+        self.wf = WaveFusion(self.mid_d, 'haar')
         self.decoder = Decoder(self.en_d * 2)
 
     def forward(self, feats):
@@ -28,7 +29,8 @@ class MaskDecoder(nn.Module):
         # temporal fusion
         c2, c3, c4, c5 = self.tfm(x1_2, x1_3, x1_4, x1_5, x2_2, x2_3, x2_4, x2_5)
         # global context of high-level and low-level
-        gc_c4 = self.gca(c4, c5)
+        # gc_c4 = self.gca(c4, c5)
+        gc_c4 = self.wf(c4, c5)
 
         # fpn
         mask_p2, mask_p3, mask_p4 = self.decoder(c2, c3, c4, c5, gc_c4)
