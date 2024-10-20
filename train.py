@@ -20,6 +20,7 @@ import torch.nn.functional as F
 from utils.utils import binary_accuracy as accuracy
 from utils.utils import AverageMeter
 
+from torch.amp import autocast, GradScaler
 
 # 读取配置
 with open('./configs/config.yaml', "r", encoding='utf-8') as file:
@@ -64,9 +65,9 @@ def FocalLoss(inputs, targets, alpha=0.25, gamma=2):
 
 
 def BCEDiceLoss(inputs, targets):
-    # print(inputs.shape, targets.shape)
-    inputs = F.sigmoid(inputs)
-    bce = F.binary_cross_entropy(inputs, targets)
+    # inputs = F.sigmoid(inputs)
+    bce = F.binary_cross_entropy_with_logits(inputs, targets)
+    inputs = torch.sigmoid(inputs)  # 这里手动将 inputs 转换为概率，用于 Dice Loss 的计算
     inter = (inputs * targets).sum()
     eps = 1e-5
     dice = (2 * inter + eps) / (inputs.sum() + targets.sum() + eps)
@@ -118,10 +119,10 @@ def main():
     # for name, param in sam2.named_parameters():
     #     # if param.requires_grad:
     #     #     print(f"参数名: {name}, 尺寸: {param.size()}")
-    #     if any(keyword in name for keyword in ['down_channel', 'soft_ffn', 'mask_decoder', 'kan', 'dynamic_map_gen']):
+    #     if any(keyword in name for keyword in ['down_channel', 'soft_ffn', 'mask_decoder', 'dynamic_map_gen']):
     #         param.requires_grad = True
     #         # print(f"参数名: {name}, 尺寸: {param.requires_grad}")
-    #     print(f"参数名: {name}, 尺寸: {param.requires_grad}")
+    #     # print(f"参数名: {name}, 尺寸: {param.requires_grad}")
 
     file_path = config_data["data"][DATA_TYPE]
     global TASK_TYPE
@@ -175,17 +176,17 @@ def train(train_loader, model, optimizer, scheduler, val_loader, save_path, curr
     bestF = 0.0
     bestacc = 0.0
     bestIoU = 0.0
-    bestloss = 1.0
+    # bestloss = 1.0
     bestaccT = 0.0
 
     train_opt = config_data["training"]
     epochs = train_opt['num_epochs'] - curr_epoch
-    batch_size = train_opt["batch_size"]
-    lr = train_opt['learning_rate']
     begin_time = time.time()
 
     if epochs <= 0:
         raise ValueError("——————No epochs left to train——————")
+    
+    scaler = GradScaler()  # 初始化 GradScaler
 
     # 创建CSV文件并写入表头
     with open(save_path + '/training_log.csv', mode='w', newline='') as file:
@@ -203,7 +204,7 @@ def train(train_loader, model, optimizer, scheduler, val_loader, save_path, curr
             loss1_meter = AverageMeter()
             loss2_meter = AverageMeter()
             loss3_meter = AverageMeter()
-            start = time.time()
+            # start = time.time()
 
             iterations = tqdm(train_loader)
             for train_data in iterations:
@@ -215,18 +216,28 @@ def train(train_loader, model, optimizer, scheduler, val_loader, save_path, curr
                 # visualize_batch(train_input_A, train_input_B, labels)
 
                 optimizer.zero_grad()
-                train_input = torch.cat((train_input_A, train_input_B), dim=0)
-                # outputs = model(train_input)
-                # # 上采样输出到标签尺寸
-                # outputs = F.interpolate(outputs, size=labels.shape[-2:], mode='bilinear', align_corners=False)
-                outputs, outputs_2, outputs_3 = model(train_input)
 
-                loss1 = BCEDiceLoss(outputs, labels)
-                loss2 = BCEDiceLoss(outputs_2, labels)
-                loss3 = BCEDiceLoss(outputs_3, labels)
-                loss = loss1 + loss2 + loss3
-                loss.backward()
-                optimizer.step()
+                # 使用 autocast 混合精度训练
+                with autocast(device_type='cuda'):
+                    train_input = torch.cat((train_input_A, train_input_B), dim=0)
+                    outputs, outputs_2, outputs_3 = model(train_input)
+
+                    loss1 = BCEDiceLoss(outputs, labels)
+                    loss2 = BCEDiceLoss(outputs_2, labels)
+                    loss3 = BCEDiceLoss(outputs_3, labels)
+                    loss = loss1 + loss2 + loss3
+
+                # 使用 scaler 进行梯度缩放和反向传播
+                scaler.scale(loss).backward()
+                # loss.backward()
+
+                # 使用 scaler 进行优化器 step 操作
+                scaler.step(optimizer)
+                # optimizer.step()
+
+                # 更新 scaler
+                scaler.update()
+
                 scheduler.step()
 
                 labels = labels.cpu().detach().numpy()

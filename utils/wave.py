@@ -31,7 +31,7 @@ class DWT_Function(Function):
 
             dx = dx.transpose(1, 2).reshape(B, -1, H // 2, W // 2)
             filters = torch.cat([w_ll, w_lh, w_hl, w_hh], dim=0).repeat(C, 1, 1, 1)
-            dx = torch.nn.functional.conv_transpose2d(dx, filters, stride=2, groups=C)
+            dx = torch.nn.functional.conv_transpose2d(dx.float(), filters.float(), stride=2, groups=C)
 
         return dx, None, None, None, None
 
@@ -54,10 +54,10 @@ class IDWT_Function(Function):
     def backward(ctx, dx):
         if ctx.needs_input_grad[0]:
             filters = ctx.saved_tensors
-            filters = filters[0]
+            filters = filters[0].float()
             B, C, H, W = ctx.shape
             C = C // 4
-            dx = dx.contiguous()
+            dx = dx.contiguous().float()
 
             w_ll, w_lh, w_hl, w_hh = torch.unbind(filters, dim=0)
             x_ll = torch.nn.functional.conv2d(dx, w_ll.unsqueeze(1).expand(C, -1, -1, -1), stride=2, groups=C)
