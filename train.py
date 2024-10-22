@@ -64,9 +64,10 @@ def FocalLoss(inputs, targets, alpha=0.25, gamma=2):
     return focal_loss.mean()
 
 
-def BCEDiceLoss(inputs, targets):
+def BCEDiceLoss(inputs, targets, pos_weight=19.0):
+    pos_weight = torch.tensor(pos_weight).to(inputs.device)
     # inputs = F.sigmoid(inputs)
-    bce = F.binary_cross_entropy_with_logits(inputs, targets)
+    bce = F.binary_cross_entropy_with_logits(inputs, targets, pos_weight=pos_weight)
     inputs = torch.sigmoid(inputs)  # 这里手动将 inputs 转换为概率，用于 Dice Loss 的计算
     inter = (inputs * targets).sum()
     eps = 1e-5
@@ -335,8 +336,22 @@ def validate(val_loader, model):
             # outputs = F.interpolate(outputs, size=labels.shape[-2:], mode='bilinear', align_corners=False)
             # loss = F.binary_cross_entropy_with_logits(outputs, labels, pos_weight=torch.tensor([10]).to(torch.device('cuda', int(train_opt['dev_id']))))
             outputs, outputs_2, outputs_3 = model(valid_input)
-            loss = BCEDiceLoss(outputs, labels) + BCEDiceLoss(outputs_2, labels) + BCEDiceLoss(outputs_3, labels)
+            loss_1 = BCEDiceLoss(outputs, labels)
+            loss_2 = BCEDiceLoss(outputs_2, labels)
+            loss_3 = BCEDiceLoss(outputs_3, labels)
+            loss = loss_1 + loss_2 + loss_3
         val_loss.update(loss.cpu().detach().numpy())
+
+        # L1 = loss_1.data.item()
+        # L2 = loss_2.data.item()
+        # L3 = loss_3.data.item()
+        # min_loss = min(L1, L2, L3)
+        # if min_loss == L1:
+        #     outputs = outputs.cpu().detach()
+        # elif min_loss == L2:
+        #     outputs = outputs_2.cpu().detach()
+        # elif min_loss == L3:
+        #     outputs = outputs_3.cpu().detach()
 
         outputs = outputs.cpu().detach()
         labels = labels.cpu().detach().numpy()
