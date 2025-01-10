@@ -1,9 +1,10 @@
 import os
 import random
 from typing import List, Type
+import numpy as np
 import pandas as pd
 import cv2
-from PIL import Image
+from PIL import Image, ImageFilter
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
@@ -42,6 +43,14 @@ class RandomTransform:
         )
 
     def __call__(self, img_a, img_b, mask):
+        # cutout
+        # if random.random() > 0.5:
+        #     img_a, img_b, mask = cutout(img_a, img_b, mask, self.size)
+
+        # cutmix
+        if random.random() > 0.5:
+            img_a, img_b = cutmix(img_a, img_b, self.size)
+
         # 随机水平翻转
         if random.random() > 0.5:
             img_a = transforms.functional.hflip(img_a)
@@ -60,9 +69,17 @@ class RandomTransform:
         img_b = transforms.functional.rotate(img_b, angle)
         mask = transforms.functional.rotate(mask, angle)
 
+        # 强-数据增强
         # 光照和颜色变换
-        img_a = self.color_jitter(img_a)
-        img_b = self.color_jitter(img_b)
+        if random.random() < 0.8:
+            img_a = self.color_jitter(img_a)
+            img_b = self.color_jitter(img_b)
+
+        # 模糊
+        if random.random() < 0.5:
+            sigma = np.random.uniform(0.1, 2.0)
+            img_a = img_a.filter(ImageFilter.GaussianBlur(radius=sigma))
+            img_b = img_b.filter(ImageFilter.GaussianBlur(radius=sigma))
 
         # 调整大小
         img_a = self.resize(img_a)
@@ -70,6 +87,78 @@ class RandomTransform:
         mask = self.resize(mask)
 
         return img_a, img_b, mask
+    
+
+def cutout(image_A, image_B, mask, output_size, scale=(0.08, 1.0), ratio=(3/4, 4/3)):
+    original_width, original_height = image_A.size
+    area = original_width * original_height
+
+    # 随机选择裁剪区域的面积
+    target_area = random.uniform(scale[0], scale[1]) * area
+
+    # 随机选择裁剪区域的宽高比
+    aspect_ratio = random.uniform(ratio[0], ratio[1])
+
+    # 计算裁剪区域的宽度和高度
+    w = int(round((target_area * aspect_ratio) ** 0.5))
+    h = int(round((target_area / aspect_ratio) ** 0.5))
+
+    # 确保裁剪区域不超过原始图像的大小
+    if w > original_width or h > original_height:
+        return cutout(image_A, image_B, mask, output_size, scale, ratio)
+
+    # 随机选择裁剪区域的位置
+    x1 = random.randint(0, original_width - w)
+    y1 = random.randint(0, original_height - h)
+
+    # 裁剪图像
+    cropped_image_A = image_A.crop((x1, y1, x1 + w, y1 + h))
+    cropped_image_B = image_B.crop((x1, y1, x1 + w, y1 + h))
+    cropped_mask = mask.crop((x1, y1, x1 + w, y1 + h))
+
+    # 调整大小
+    resized_image_A = cropped_image_A.resize(output_size, Image.BILINEAR)
+    resized_image_B = cropped_image_B.resize(output_size, Image.BILINEAR)
+    resized_mask = cropped_mask.resize(output_size, Image.BILINEAR)
+
+    return resized_image_A, resized_image_B, resized_mask
+
+def cutmix(image_A, image_B, output_size, scale=(0.08, 1.0), ratio=(3/4, 4/3)):
+    original_width, original_height = image_A.size
+    area = original_width * original_height
+
+    # 随机选择裁剪区域的面积
+    target_area = random.uniform(scale[0], scale[1]) * area
+
+    # 随机选择裁剪区域的宽高比
+    aspect_ratio = random.uniform(ratio[0], ratio[1])
+
+    # 计算裁剪区域的宽度和高度
+    w = int(round((target_area * aspect_ratio) ** 0.5))
+    h = int(round((target_area / aspect_ratio) ** 0.5))
+
+    # 确保裁剪区域不超过原始图像的大小
+    if w > original_width or h > original_height:
+        return cutmix(image_A, image_B, output_size, scale, ratio)
+
+    # 随机选择裁剪区域的位置
+    x1 = random.randint(0, original_width - w)
+    y1 = random.randint(0, original_height - h)
+
+    # 创建一个与原始图像大小相同的空白图像
+    cutmix_image_A = image_A.copy()
+    cutmix_image_B = image_B.copy()
+
+    # 将image_A的裁剪区域替换为image_B的相应区域
+    cutmix_image_A.paste(image_B.crop((x1, y1, x1 + w, y1 + h)), (x1, y1))
+    # 将image_B的裁剪区域替换为image_A的相应区域
+    cutmix_image_B.paste(image_A.crop((x1, y1, x1 + w, y1 + h)), (x1, y1))
+
+    # 调整大小
+    resized_image_A = cutmix_image_A.resize(output_size, Image.BILINEAR)
+    resized_image_B = cutmix_image_B.resize(output_size, Image.BILINEAR)
+
+    return resized_image_A, resized_image_B
 
 def preprocess(
         x: torch.Tensor,
@@ -173,6 +262,7 @@ class CustomDataset(Dataset):
             'image_A': img_a,
             'image_B': img_b,
             'mask': mask,
+            'filename': filename
         }
 
         return data

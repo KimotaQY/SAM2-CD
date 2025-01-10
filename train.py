@@ -64,7 +64,7 @@ def FocalLoss(inputs, targets, alpha=0.25, gamma=2):
     return focal_loss.mean()
 
 
-def BCEDiceLoss(inputs, targets, pos_weight=19.0):
+def BCEDiceLoss(inputs, targets, pos_weight=21.7):
     pos_weight = torch.tensor(pos_weight).to(inputs.device)
     # inputs = F.sigmoid(inputs)
     bce = F.binary_cross_entropy_with_logits(inputs, targets, pos_weight=pos_weight)
@@ -183,6 +183,7 @@ def train(train_loader, model, optimizer, scheduler, val_loader, save_path, curr
     train_opt = config_data["training"]
     epochs = train_opt['num_epochs'] - curr_epoch
     begin_time = time.time()
+    validate_every = config_data["validation"]["validate_every"]
 
     if epochs <= 0:
         raise ValueError("——————No epochs left to train——————")
@@ -266,28 +267,29 @@ def train(train_loader, model, optimizer, scheduler, val_loader, save_path, curr
                 # pbar_desc += f", l3: {loss3.data.item():.5f}"
                 iterations.set_description(pbar_desc)
 
-            val_F, val_acc, val_IoU, val_loss, val_pre, val_rec = validate(val_loader, model)
-            writer.writerow(
-                [epoch + curr_epoch + 1, train_loss.avg, acc_meter.avg * 100, f1_meter.avg * 100, iou_meter.avg * 100, val_loss,
-                 val_acc * 100, val_F * 100, val_IoU * 100])
-            if val_F > bestF or val_IoU > bestIoU:
-                bestF = val_F
-                bestacc = val_acc
-                bestIoU = val_IoU
-                bestPre = val_pre
-                bestRec = val_rec
-                if TASK_TYPE != 'test':
-                    torch.save({
-                        'model': model.state_dict()
-                    }, os.path.join(save_path, NET_NAME + '_e%d_OA%.2f_F%.2f_IoU%.2f.pth' % (
-                        epoch + curr_epoch + 1, val_acc * 100, val_F * 100, val_IoU * 100)))
-                # 记录best_model评分
-                with open(save_path + '/best_models_score.txt', 'a') as file:
-                    file.write('e%d OA_%.2f F1_%.2f Iou_%.2f Pre_%.2f Rec_%.2f \n' % (epoch + curr_epoch + 1, val_acc * 100, val_F * 100, val_IoU * 100, val_pre * 100, val_rec * 100))
-            if acc_meter.avg > bestaccT: bestaccT = acc_meter.avg
-            print('[epoch %d/%d %.1fs] Best rec: Train %.2f, Val %.2f, F1: %.2f IoU: %.2f, Pre: %.2f, Rec: %.2f L1 %.2f L2 %.2f L3 %.2f' \
-                  % (epoch + curr_epoch + 1, epochs + curr_epoch, time.time() - begin_time, bestaccT * 100, bestacc * 100, bestF * 100,
-                     bestIoU * 100, bestPre * 100, bestRec * 100, loss1_meter.avg, loss2_meter.avg, loss3_meter.avg))
+            if (epoch + curr_epoch + 1) % validate_every == 0:
+                val_F, val_acc, val_IoU, val_loss, val_pre, val_rec = validate(val_loader, model)
+                writer.writerow(
+                    [epoch + curr_epoch + 1, train_loss.avg, acc_meter.avg * 100, f1_meter.avg * 100, iou_meter.avg * 100, val_loss,
+                    val_acc * 100, val_F * 100, val_IoU * 100])
+                if val_F > bestF or val_IoU > bestIoU:
+                    bestF = val_F
+                    bestacc = val_acc
+                    bestIoU = val_IoU
+                    bestPre = val_pre
+                    bestRec = val_rec
+                    if TASK_TYPE != 'test':
+                        torch.save({
+                            'model': model.state_dict()
+                        }, os.path.join(save_path, NET_NAME + '_e%d_OA%.2f_F%.2f_IoU%.2f.pth' % (
+                            epoch + curr_epoch + 1, val_acc * 100, val_F * 100, val_IoU * 100)))
+                    # 记录best_model评分
+                    with open(save_path + '/best_models_score.txt', 'a') as file:
+                        file.write('e%d OA_%.2f F1_%.2f Iou_%.2f Pre_%.2f Rec_%.2f \n' % (epoch + curr_epoch + 1, val_acc * 100, val_F * 100, val_IoU * 100, val_pre * 100, val_rec * 100))
+                if acc_meter.avg > bestaccT: bestaccT = acc_meter.avg
+                print('[epoch %d/%d %.1fs] Best rec: Train %.2f, Val %.2f, F1: %.2f IoU: %.2f, Pre: %.2f, Rec: %.2f L1 %.2f L2 %.2f L3 %.2f' \
+                    % (epoch + curr_epoch + 1, epochs + curr_epoch, time.time() - begin_time, bestaccT * 100, bestacc * 100, bestF * 100,
+                        bestIoU * 100, bestPre * 100, bestRec * 100, loss1_meter.avg, loss2_meter.avg, loss3_meter.avg))
 
             # scheduler.step()
             # 根据验证损失更新学习率
