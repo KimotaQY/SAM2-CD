@@ -44,12 +44,12 @@ class RandomTransform:
 
     def __call__(self, img_a, img_b, mask):
         # cutout
-        # if random.random() > 0.5:
-        #     img_a, img_b, mask = cutout(img_a, img_b, mask, self.size)
+        if random.random() > 0.5:
+            img_a, img_b, mask = cutout(img_a, img_b, mask, self.size)
 
         # cutmix
-        if random.random() > 0.5:
-            img_a, img_b = cutmix(img_a, img_b, self.size)
+        # if random.random() > 0.5:
+        #     img_a, img_b = cutmix(img_a, img_b, self.size)
 
         # 随机水平翻转
         if random.random() > 0.5:

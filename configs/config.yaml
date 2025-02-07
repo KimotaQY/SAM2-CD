@@ -3,8 +3,8 @@ data:
   type: 'LEVIR'
   # type: 'WHU'
   # type: 'LEVIR+'
-  # LEVIR: "E:/CD_datasets/LEVIR-CD"
-  LEVIR: "E:/CD_datasets/LEVIR-CD-0.4"
+  LEVIR: "E:/CD_datasets/LEVIR-CD"
+  # LEVIR: "E:/CD_datasets/LEVIR-CD-0.1"
   LEVIR+: "E:/CD_datasets/LEVIR-CD+"
   WHU: "E:/CD_datasets/WHU-CD"
   # root: "D:/Datasets/SYSU-CD"
@@ -30,7 +30,7 @@ model:
 training:
   batch_size: 1        # 批量大小
   learning_rate: 0.00001   # 初始学习率 1e-5
-  num_epochs: 2500       # 训练的epoch数量
+  num_epochs: 1000       # 训练的epoch数量
   device: "cuda"        # 训练设备 ("cuda" 或 "cpu")
   dev_id: 0
   seed: 77              # 随机种子，确保结果可复现
@@ -44,5 +44,5 @@ logging:
 
 # 验证和测试配置
 validation:
-  validate_every: 3     # 每多少个epoch进行一次验证
+  validate_every: 1     # 每多少个epoch进行一次验证
   save_best_model: True # 是否在验证过程中保存表现最好的模型
