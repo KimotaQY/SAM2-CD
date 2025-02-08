@@ -36,7 +36,6 @@ class CustomDataset(Dataset):
         # 对图像应用变换
         if "train" not in self.data_type:
             img_a, img_b = normalize(img_a, img_b)
-            # return {"image_A": img_a, "image_B": img_b, "mask": mask, "filename": filename}
         else:
             # 弱增强
             img_a, img_b, mask = resize(img_a, img_b, mask, (0.5, 2.0))
@@ -51,6 +50,7 @@ class CustomDataset(Dataset):
             # cutmix or cutout
             if random.random() < 0.5:
                 img_a, img_b = cutmix(img_a, img_b, (1024, 1024))
+                # img_a, img_b, mask = cutout(img_a, img_b, mask, (1024, 1024))
 
             img_a, img_b = normalize(img_a, img_b)
 

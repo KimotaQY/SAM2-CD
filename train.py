@@ -12,12 +12,9 @@ from tqdm import tqdm
 from datetime import datetime
 import yaml
 from models.build_sam import build_sam2
-from utils.losses import mean_iou, CombinedLoss
 
 # from datasets.CustomDataset import build_dataloader
 from datasets.CD import build_dataloader
-
-# from datasets.SYSU_CD import CustomDataset
 
 import torch.nn.functional as F
 from utils.utils import binary_accuracy as accuracy
@@ -67,7 +64,7 @@ def FocalLoss(inputs, targets, alpha=0.25, gamma=2):
     return focal_loss.mean()
 
 
-def BCEDiceLoss(inputs, targets, pos_weight=20.6):
+def BCEDiceLoss(inputs, targets, pos_weight=19):
     pos_weight = torch.tensor(pos_weight).to(inputs.device)
     # inputs = F.sigmoid(inputs)
     bce = F.binary_cross_entropy_with_logits(inputs, targets, pos_weight=pos_weight)
