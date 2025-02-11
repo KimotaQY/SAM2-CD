@@ -48,9 +48,9 @@ class CustomDataset(Dataset):
             img_a, img_b = grayscale(img_a, img_b, p=0.2)
             img_a, img_b = blur(img_a, img_b, p=0.5)
             # cutmix or cutout
-            if random.random() < 0.5:
-                img_a, img_b = cutmix(img_a, img_b, (1024, 1024))
-                # img_a, img_b, mask = cutout(img_a, img_b, mask, (1024, 1024))
+            # if random.random() < 0.5:
+            # img_a, img_b = cutmix(img_a, img_b, (1024, 1024))
+            # img_a, img_b, mask = cutout(img_a, img_b, mask, (1024, 1024))
 
             img_a, img_b = normalize(img_a, img_b)
 
