@@ -1,80 +1,80 @@
-# 📖 项目概述
+# 📖 Project Overview
 
-**论文标题**  
+**Paper Title**  
 《SAM2-CD: Remote Sensing Image Change Detection with SAM2》  
 
-**作者**  
-Your Name, Co-Author Name  
+**Authors**  
+Yuan Qin,Chaoting Wang,Yuanyuan Fan,Chanling Pan 
 
-**发表信息**  
-- 会议/期刊：  
-- 发表日期： Yuan Qin,Chaoting Wang,Yuanyuan Fan,Chanling Pan 
-- DOI: [10.xxxx/xxxx](链接)  
-- 论文链接: [PDF](链接) | [arXiv](链接)  
+**Publication Information**  
+- Conference/Journal:
+- Publication Date:
+- DOI: [10.xxxx/xxxx](link)  
+- Paper Links: [PDF](link) | [arXiv](link)  
 
-**项目简介**  
-本项目是论文《SAM2-CD: Remote Sensing Image Change Detection with SAM2》的官方开源实现，包含实验代码、数据集和复现指南。  
-🔬 研究领域：Remote Sensing, Deep Learning, Change Detection  
-💡 核心贡献：
-
----
-
-## 🛠️ 项目状态
-
-**当前状态**  
-✅ **代码可用性**：本仓库包含论文中所有实验的完整实现。
-✅ **数据集**：提供实验所需的数据集或生成脚本。
-✅ **复现性**：已通过测试，可复现论文中的主要结果。
-
-**维护说明**  
-🚧 本项目处于 **维护模式**，主要修复关键问题，不再添加新功能。  
-📅 最后更新时间：2025-02-08  
-📬 如有问题，请通过 Issues 或邮件联系作者。
+**Project Description**  
+This repository is the official open-source implementation of the paper "SAM2-CD: Remote Sensing Image Change Detection with SAM2", including experimental code, datasets, and reproduction guidelines. 
+🔬 Research Fields: Remote Sensing, Deep Learning, Change Detection  
+💡 Key Contributions:
 
 ---
 
-## 📂 仓库结构
+## 🛠️ Project Status
+
+**Current Status**  
+✅ **Code Availability**：This repository contains complete implementations for all experiments in the paper.
+✅ **Datasets**：Provides required datasets or generation scripts for experiments.
+✅ **Reproducibility**：Tested to reproduce the main results reported in the paper.
+
+**Maintenance Notes**  
+🚧 This project is in **Maintenance Mode**，focusing on critical fixes only. No new features will be added.  
+📅 Last Updated: 2025-02-08  
+📬 For questions, please open an Issue or contact the authors via email.
+
+---
+
+## 📂 Repository Structure
 
 ```plaintext
-.
-├── configs/             # 配置文件
-├── datasets/            # 数据集加载方式
-├── models/              # sam2核心算法实现
-├── sam2_configs/        # sam2配置文件
-├── outputs/             # 结果文件
-├── utils/               # 部分核心代码
-├── README.md            # 本文件
-├── requirements.txt     # 依赖库
+.  
+├── configs/             # Configuration files  
+├── datasets/            # Dataset loaders  
+├── models/              # Core SAM2 algorithm implementation  
+├── sam2_configs/        # SAM2 configuration files  
+├── outputs/             # Result files  
+├── utils/               # Core utility scripts  
+├── README.md            # This file  
+├── requirements.txt     # Dependencies  
 
 ```
 
 ---
 
-# 🚀 快速开始
+# 🚀 Quick Start
 
-## 环境配置
+## Environment Setup
 
-**克隆仓库**
+**Clone the Repository**
 ```bash
 git clone https://github.com/KimotaQY/SAM2-CD.git
 cd SAM2-CD
 ```
 
-**安装依赖**
+**Install Dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-## 运行示例
+## Run an Example
 ```bash
 python train.py
 ```
 
-## 数据集和检查点
-1. LEVIR-CD：(链接)
-2. WHU-CD：(链接)
-3. Checkpoints: (链接)
+## Datasets & Checkpoints
+1. LEVIR-CD：(link)
+2. WHU-CD：(link)
+3. Checkpoints: (link)
 
 ---
 
-# 📬 联系作者
+# 📬 Contact the Authors
