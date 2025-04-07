@@ -151,7 +151,7 @@ class MultiScaleBlock(nn.Module):
                 nn.GELU(),
                 nn.Conv2d(dim, dim // 2, kernel_size=1, stride=1),
                 nn.GELU(),
-                nn.Conv2d(dim // 2, 1, kernel_size=1, stride=1)
+                nn.Conv2d(dim // 2, 1, kernel_size=1, stride=1),
             )
 
             # —————————————————————————End—————————————————————————————————
@@ -161,7 +161,6 @@ class MultiScaleBlock(nn.Module):
                 nn.GELU(),
                 nn.Conv2d(dim, dim, kernel_size=1, stride=1),
             )
-
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         shortcut = x  # B, H, W, C
@@ -199,8 +198,8 @@ class MultiScaleBlock(nn.Module):
         if self.window_size == 0:
             # x = einops.rearrange(x, 'b h w d -> b d h w')  # 2B, C, H, W
             x = x.permute(0, 3, 1, 2)
-            x0 = x[:x.size(0)//2]
-            x1 = x[x.size(0)//2:]  # B, C, H, W
+            x0 = x[: x.size(0) // 2]
+            x1 = x[x.size(0) // 2 :]  # B, C, H, W
             # x0_1 = torch.cat([x0, x1], dim=1)
             # activate_map = self.down_channel(x0_1)
             # activate_map = torch.sigmoid(activate_map)
