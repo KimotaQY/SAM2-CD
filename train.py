@@ -64,7 +64,7 @@ def FocalLoss(inputs, targets, alpha=0.25, gamma=2):
     return focal_loss.mean()
 
 
-def BCEDiceLoss(inputs, targets, pos_weight=19):
+def BCEDiceLoss(inputs, targets, pos_weight=21):
     pos_weight = torch.tensor(pos_weight).to(inputs.device)
     # inputs = F.sigmoid(inputs)
     bce = F.binary_cross_entropy_with_logits(inputs, targets, pos_weight=pos_weight)
@@ -142,7 +142,7 @@ def main():
     # dataloaders
     dataloaders = build_dataloader(file_path, batch_size, train_opt["num_workers"])
     train_loader = dataloaders["train"]
-    val_loader = dataloaders["test"]
+    val_loader = dataloaders["val"]
 
     # 定义优化器、调度器
     lr = train_opt["learning_rate"]
