@@ -129,10 +129,10 @@ class FeatureReinforcementModule(nn.Module):
 
 
 class FeatureFusionModule(nn.Module):
-    def __init__(self, fuse_d, id_d, out_d, drop_rate):
+    def __init__(self, fuse_d, in_d, out_d, drop_rate):
         super(FeatureFusionModule, self).__init__()
         self.fuse_d = fuse_d
-        self.id_d = id_d
+        self.in_d = in_d
         self.out_d = out_d
         self.conv_fuse = nn.Sequential(
             nn.Conv2d(self.fuse_d, self.fuse_d, kernel_size=1, stride=1),
@@ -152,10 +152,76 @@ class FeatureFusionModule(nn.Module):
             nn.Conv2d(self.fuse_d, self.out_d, kernel_size=1, stride=1),
             nn.BatchNorm2d(self.out_d),
         )
-        self.conv_identity = nn.Conv2d(self.id_d, self.out_d, kernel_size=1)
+        self.conv_identity = nn.Conv2d(self.in_d, self.out_d, kernel_size=1)
         self.relu = nn.ReLU(inplace=True)
 
+        # self.gap = nn.AdaptiveAvgPool2d(1)
+        # self.softmax = nn.Softmax(dim=2)
+        # self.Sigmoid = nn.Sigmoid()
+
+        # self.Conv2 = nn.Sequential(
+        #     nn.Conv2d(
+        #         self.fuse_d // 4,
+        #         self.fuse_d // 4,
+        #         kernel_size=1,
+        #         padding=0,
+        #         dilation=1,
+        #         bias=False,
+        #     )
+        # )
+        # self.Conv3 = nn.Sequential(
+        #     nn.Conv2d(
+        #         self.fuse_d // 4,
+        #         self.fuse_d // 4,
+        #         kernel_size=1,
+        #         padding=0,
+        #         dilation=1,
+        #         bias=False,
+        #     )
+        # )
+        # self.Conv4 = nn.Sequential(
+        #     nn.Conv2d(
+        #         self.fuse_d // 4,
+        #         self.fuse_d // 4,
+        #         kernel_size=1,
+        #         padding=0,
+        #         dilation=1,
+        #         bias=False,
+        #     )
+        # )
+        # self.Conv5 = nn.Sequential(
+        #     nn.Conv2d(
+        #         self.fuse_d // 4,
+        #         self.fuse_d // 4,
+        #         kernel_size=1,
+        #         padding=0,
+        #         dilation=1,
+        #         bias=False,
+        #     )
+        # )
+
     def forward(self, c_fuse, c):
+        # c2, c3, c4, c5 = torch.chunk(c_fuse, chunks=4, dim=1)
+
+        # # 计算多尺度权重
+        # c2_weight = self.Conv2(self.gap(c2))
+        # c3_weight = self.Conv3(self.gap(c3))
+        # c4_weight = self.Conv4(self.gap(c4))
+        # c5_weight = self.Conv5(self.gap(c5))
+
+        # weight = torch.cat([c2_weight, c3_weight, c4_weight, c5_weight], 2)
+        # weight = self.softmax(self.Sigmoid(weight))
+
+        # # 调整权重维度
+        # c2_weight = torch.unsqueeze(weight[:, :, 0], 2)
+        # c3_weight = torch.unsqueeze(weight[:, :, 1], 2)
+        # c4_weight = torch.unsqueeze(weight[:, :, 2], 2)
+        # c5_weight = torch.unsqueeze(weight[:, :, 3], 2)
+
+        # c_fuse = torch.cat(
+        #     [c2 * c2_weight, c3 * c3_weight, c4 * c4_weight, c5 * c5_weight], dim=1
+        # )
+
         c_fuse = self.conv_fuse(c_fuse)
         c_out = self.relu(c_fuse + self.conv_identity(c))
 
@@ -247,21 +313,7 @@ class GlobalContextAggregation(nn.Module):
             nn.ReLU(inplace=True),
         )
 
-        # self.cbam = CBAM(self.mid_d)
-        # self.cbam = CBAM(self.in_d)
-        # self.channel_attention = ChannelAttention(self.mid_d)
-        # 调整通道数
-        # self.out_conv = nn.Sequential(
-        #     nn.Conv2d(self.mid_d, self.out_d, kernel_size=1, stride=1),
-        #     nn.BatchNorm2d(self.out_d),
-        #     nn.ReLU(inplace=True)
-        # )
-
-        # self.se = SEBlock(self.mid_d)
-
     def forward(self, x4, x5):
-        # CBAM
-        # x = self.cbam(x4 + F.interpolate(x5, scale_factor=(2, 2), mode="bilinear"))
 
         x = self.conv3x3(x4 + F.interpolate(x5, scale_factor=(2, 2), mode="bilinear"))
 
@@ -272,15 +324,6 @@ class GlobalContextAggregation(nn.Module):
             [self.shared_conv(x[:, i, :, :, :]) for i in range(self.group)], dim=1
         )
         x = x.view(b, -1, h, w)
-
-        # CBAM
-        # x = self.cbam(x)
-
-        # 使用通道注意力
-        # x = self.channel_attention(x) * x
-
-        # 应用SE
-        # x = self.se(x)
 
         x = self.out_conv(x)
 
