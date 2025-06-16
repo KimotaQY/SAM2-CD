@@ -11,11 +11,16 @@ from tqdm import tqdm
 from datetime import datetime
 import yaml
 from models.build_sam import build_sam2
-from datasets.CustomDataset import build_dataloader
+
+# from datasets.CustomDataset import build_dataloader
+from datasets.CD import build_dataloader
 
 import torch.nn.functional as F
-from utils.utils import binary_accuracy as accuracy
-from utils.utils import AverageMeter
+from utils.metrics import binary_accuracy as accuracy
+from utils.AverageMeter import AverageMeter
+from utils.visualization import visualize_batch_test as visualize_batch
+from utils.losses import BCEDiceLoss
+
 from PIL import Image
 
 # 读取配置
@@ -28,77 +33,8 @@ NET_NAME = "SAM2_" + DATA_TYPE
 TASK_TYPE = "test"
 
 
-# import matplotlib.pyplot as plt
-def visualize_batch(images_a, images_b, masks, pred, **kwargs):
-    input_A_np = images_a.cpu().numpy().transpose(0, 2, 3, 1)
-    input_B_np = images_b.cpu().numpy().transpose(0, 2, 3, 1)
-    # mask_np = masks.cpu().numpy().transpose(0, 2, 3, 1)
-    # pred_np = pred.cpu().numpy().transpose(0, 2, 3, 1)
-    mask_np = masks.transpose(0, 2, 3, 1)
-    pred_np = pred.transpose(0, 2, 3, 1)
-
-    plt.title(f"F1: {kwargs['F1']}, IoU: {kwargs['IoU']}")
-
-    # 可视化前后时相及其对应的mask
-    for i in range(min(4, images_a.size(0))):  # 打印前4个图像样本
-        fig, axs = plt.subplots(2, 2, figsize=(10, 10))
-
-        axs[0, 0].imshow((input_A_np[i] * 0.5) + 0.3)  # 反归一化
-        axs[0, 0].set_title("Image A (T1)")
-        axs[0, 0].axis("off")
-
-        axs[0, 1].imshow((input_B_np[i] * 0.5) + 0.3)  # 反归一化
-        axs[0, 1].set_title("Image B (T2)")
-        axs[0, 1].axis("off")
-
-        axs[1, 0].imshow(mask_np[i].squeeze(), cmap="gray")
-        axs[1, 0].set_title("Mask")
-        axs[1, 0].axis("off")
-
-        axs[1, 1].imshow(pred_np[i].squeeze(), cmap="gray")
-        axs[1, 1].set_title("Pred")
-        axs[1, 1].axis("off")
-
-        plt.show()
-
-
-def FocalLoss(inputs, targets, alpha=0.25, gamma=2):
-    # inputs = F.sigmoid(inputs)
-    BCE = F.binary_cross_entropy(inputs, targets, reduction="none")
-    BCE_EXP = torch.exp(-BCE)
-    focal_loss = alpha * (1 - BCE_EXP) ** gamma * BCE
-    return focal_loss.mean()
-
-
-def BCEDiceLoss(inputs, targets):
-    # print(inputs.shape, targets.shape)
-    inputs = F.sigmoid(inputs)
-    bce = F.binary_cross_entropy(inputs, targets)
-    inter = (inputs * targets).sum()
-    eps = 1e-5
-    dice = (2 * inter + eps) / (inputs.sum() + targets.sum() + eps)
-    # print(bce.item(), inter.item(), inputs.sum().item(), dice.item())
-    # focal = FocalLoss(inputs, targets)  # BCEDiceFocalLoss
-    return bce + 1 - dice
-
-
-def set_seed(seed):
-    random.seed(seed)  # 设置 Python 内部的随机种子
-    np.random.seed(seed)  # 设置 NumPy 的随机种子
-    torch.manual_seed(seed)  # 设置 PyTorch 的随机种子（CPU）
-    torch.cuda.manual_seed(seed)  # 设置 PyTorch 的随机种子（单 GPU）
-    torch.cuda.manual_seed_all(seed)  # 如果使用多 GPU 设置所有 GPU 的随机种子
-
-    # 确保 CuDNN 的确定性操作
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-
 def main():
     train_opt = config_data["training"]
-
-    SEED = train_opt["seed"]
-    # set_seed(SEED)
 
     # 构建模型
     model_opt = config_data["model"]
@@ -149,7 +85,7 @@ def validate(val_loader, model):
     iterations = tqdm(val_loader)
 
     # 新建CSV文件并写入表头
-    vis_outpath = "./vis_outputs/LEVIR-CD-VIS-baseline-0.2-train"
+    vis_outpath = "./vis_outputs/WHU-vis-tmp"
     csv_file_path = vis_outpath + "/output.csv"
     with open(csv_file_path, mode="w", newline="") as csv_file:
         csv_writer = csv.writer(csv_file)
@@ -206,10 +142,10 @@ def validate(val_loader, model):
 
                 # ##################### 输出预测结果 #####################
                 change_map = (pred >= 0.5).astype(int).squeeze(0)
-                # ground_truth = label.squeeze(0)
-                # # Step 1: 计算 FP 和 FN 区域
-                # fp = (change_map == 1) & (ground_truth == 0)  # 假阳性区域
-                # fn = (change_map == 0) & (ground_truth == 1)  # 假阴性区域
+                ground_truth = label.squeeze(0)
+                # Step 1: 计算 FP 和 FN 区域
+                fp = (change_map == 1) & (ground_truth == 0)  # 假阳性区域
+                fn = (change_map == 0) & (ground_truth == 1)  # 假阴性区域
 
                 # Step 2: 创建一个 RGB 彩色图像用于标记结果
                 result_img = np.zeros(
@@ -219,9 +155,9 @@ def validate(val_loader, model):
                 # 将变化检测的结果转换成白色区域
                 result_img[change_map == 1] = [255, 255, 255]  # 白色表示检测到变化
 
-                # # Step 3: 在结果图上叠加 FP 和 FN 区域
-                # result_img[fp] = [255, 0, 0]   # 红色标记假阳性
-                # result_img[fn] = [0, 255, 0]   # 绿色标记假阴性
+                # Step 3: 在结果图上叠加 FP 和 FN 区域
+                result_img[fp] = [255, 0, 0]  # 红色标记假阳性
+                result_img[fn] = [0, 255, 0]  # 绿色标记假阴性
 
                 # Step 4: 保存结果图
                 output_image = Image.fromarray(result_img)

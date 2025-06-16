@@ -9,7 +9,7 @@ folder_b = os.path.join(train_folder, 'B')
 label_folder = os.path.join(train_folder, 'label')
 
 # 定义新的文件夹路径
-new_folder = 'E:/CD_datasets/LEVIR-CD/train_0.4'
+new_folder = 'E:/CD_datasets/LEVIR-CD/train_0.05'
 new_folder_a = os.path.join(new_folder, 'A')
 new_folder_b = os.path.join(new_folder, 'B')
 new_folder_label = os.path.join(new_folder, 'label')
@@ -24,7 +24,7 @@ file_names = os.listdir(folder_a)  # 假设文件名在A文件夹中一致
 
 # 计算需要复制的文件数量
 total_files = len(file_names)
-num_to_copy = math.ceil(total_files * 0.4)  # 取x%的图片
+num_to_copy = math.ceil(total_files * 0.1)  # 取x%的图片
 interval = total_files // num_to_copy  # 计算间隔
 
 # 创建一个列表来保存复制的文件名

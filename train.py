@@ -7,7 +7,9 @@ import time
 from matplotlib import pyplot as plt
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch import optim
+from torch.amp import autocast, GradScaler
 from tqdm import tqdm
 from datetime import datetime
 import yaml
@@ -16,11 +18,11 @@ from models.build_sam import build_sam2
 # from datasets.CustomDataset import build_dataloader
 from datasets.CD import build_dataloader
 
-import torch.nn.functional as F
-from utils.utils import binary_accuracy as accuracy
-from utils.utils import AverageMeter
+from utils.metrics import binary_accuracy as accuracy
+from utils.AverageMeter import AverageMeter
+from utils.visualization import visualize_batch
+from utils.losses import BCEDiceLoss
 
-from torch.amp import autocast, GradScaler
 
 # 读取配置
 with open("./configs/config.yaml", "r", encoding="utf-8") as file:
@@ -30,53 +32,6 @@ with open("./configs/config.yaml", "r", encoding="utf-8") as file:
 DATA_TYPE = config_data["data"]["type"]
 NET_NAME = "SAM2_" + DATA_TYPE
 TASK_TYPE = "test"
-
-
-# import matplotlib.pyplot as plt
-def visualize_batch(images_a, images_b, masks):
-    input_A_np = images_a.cpu().numpy().transpose(0, 2, 3, 1)
-    input_B_np = images_b.cpu().numpy().transpose(0, 2, 3, 1)
-    mask_np = masks.cpu().numpy().transpose(0, 2, 3, 1)
-
-    # 可视化前后时相及其对应的mask
-    for i in range(min(4, images_a.size(0))):  # 打印前4个图像样本
-        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
-        axs[0].imshow((input_A_np[i] * 0.5) + 0.5)  # 反归一化
-        axs[0].set_title("Image A (T1)")
-        axs[0].axis("off")
-
-        axs[1].imshow((input_B_np[i] * 0.5) + 0.5)  # 反归一化
-        axs[1].set_title("Image B (T2)")
-        axs[1].axis("off")
-
-        axs[2].imshow(mask_np[i].squeeze(), cmap="gray")
-        axs[2].set_title("Mask")
-        axs[2].axis("off")
-
-        plt.show()
-
-
-def FocalLoss(inputs, targets, alpha=0.25, gamma=2):
-    # inputs = F.sigmoid(inputs)
-    BCE = F.binary_cross_entropy(inputs, targets, reduction="none")
-    BCE_EXP = torch.exp(-BCE)
-    focal_loss = alpha * (1 - BCE_EXP) ** gamma * BCE
-    return focal_loss.mean()
-
-
-def BCEDiceLoss(inputs, targets, pos_weight=21):
-    pos_weight = torch.tensor(pos_weight).to(inputs.device)
-    # inputs = F.sigmoid(inputs)
-    bce = F.binary_cross_entropy_with_logits(inputs, targets, pos_weight=pos_weight)
-    inputs = torch.sigmoid(
-        inputs
-    )  # 这里手动将 inputs 转换为概率，用于 Dice Loss 的计算
-    inter = (inputs * targets).sum()
-    eps = 1e-5
-    dice = (2 * inter + eps) / (inputs.sum() + targets.sum() + eps)
-    # print(bce.item(), inter.item(), inputs.sum().item(), dice.item())
-    # focal = FocalLoss(inputs, targets)  # BCEDiceFocalLoss
-    return bce + 1 - dice
 
 
 def set_seed(seed):
@@ -130,10 +85,18 @@ def main():
     # for name, param in sam2.named_parameters():
     #     # if param.requires_grad:
     #     #     print(f"参数名: {name}, 尺寸: {param.size()}")
-    #     if any(keyword in name for keyword in ['down_channel', 'soft_ffn', 'mask_decoder', 'dynamic_map_gen']):
+    #     if any(
+    #         keyword in name
+    #         for keyword in [
+    #             "down_channel",
+    #             "soft_ffn",
+    #             "mask_decoder",
+    #             "dynamic_map_gen",
+    #         ]
+    #     ):
     #         param.requires_grad = True
-    #         # print(f"参数名: {name}, 尺寸: {param.requires_grad}")
-    #     # print(f"参数名: {name}, 尺寸: {param.requires_grad}")
+    #         print(f"参数名: {name}, 尺寸: {param.requires_grad}")
+    #     print(f"参数名: {name}, 尺寸: {param.requires_grad}")
 
     file_path = config_data["data"][DATA_TYPE]
     global TASK_TYPE
@@ -238,7 +201,6 @@ def train(
 
             iterations = tqdm(train_loader)
             for train_data in iterations:
-                train_data
                 train_input_A = (
                     train_data["image_A"]
                     .to(torch.device("cuda", int(train_opt["dev_id"])))
