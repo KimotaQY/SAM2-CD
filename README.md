@@ -54,6 +54,12 @@ This repository is the official open-source implementation of the paper "SAM2-CD
 
 ## Environment Setup
 
+**Create a conda environment**
+```bash
+conda create -n sam2_cd python=3.10
+conda activate sam2_cd
+```
+
 **Clone the Repository**
 ```bash
 git clone https://github.com/KimotaQY/SAM2-CD.git

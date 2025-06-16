@@ -54,6 +54,12 @@ Your Name, Co-Author Name
 
 ## 环境配置
 
+**创建一个conda环境**
+```bash
+conda create -n sam2_cd python=3.10
+conda activate sam2_cd
+```
+
 **克隆仓库**
 ```bash
 git clone https://github.com/KimotaQY/SAM2-CD.git
