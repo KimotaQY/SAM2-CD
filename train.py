@@ -308,6 +308,19 @@ def train(
                                 ),
                             ),
                         )
+                    # 清理多余的 .pth 文件
+                    model_files = [
+                        f for f in os.listdir(save_path) if f.endswith(".pth")
+                    ]
+                    if len(model_files) > 5:  # 设置最大保留的模型数量
+                        # 按文件创建时间排序，保留最新的 5 个模型
+                        model_files.sort(
+                            key=lambda x: os.path.getmtime(os.path.join(save_path, x))
+                        )
+                        for file_name in model_files[:-5]:
+                            os.remove(os.path.join(save_path, file_name))
+                            print(f"Deleted old model: {file_name}")
+
                     # 记录best_model评分
                     with open(save_path + "/best_models_score.txt", "a") as file:
                         file.write(
